@@ -1,6 +1,6 @@
 ## Hi there 👋
 ##Personal Repo of a SQL Server DBA with a focus in PowerShell and automation  
-##LinkedIn profile: https://www.linkedin.com/in/michaelgjewett/
+##LinkedIn profile: https://www.linkedin.com/in/michaelgjewett/  
 ##More to come...
 
 <!--
