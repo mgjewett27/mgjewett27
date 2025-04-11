@@ -1,7 +1,8 @@
 ## Hi there 👋
-## Personal Repo of a SQL Server DBA with a focus in PowerShell and automation  
-## LinkedIn profile: https://www.linkedin.com/in/michaelgjewett/  
-## More to come...
+  
+Personal Repo of a SQL Server DBA with a focus in PowerShell and automation  
+LinkedIn profile: https://www.linkedin.com/in/michaelgjewett/  
+More to come...
 
 <!--
 **mgjewett27/mgjewett27** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
