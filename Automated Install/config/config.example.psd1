@@ -118,7 +118,7 @@
                 '2025' = @{ Iso = '\\fileshare\DBA\ISO\SQL2025_Developer.iso'; Ini = '..\ini\ConfigurationFile_2025.ini'; Sha256 = '' }
             }
             ScriptTokens    = @{
-                '##BACKUP_LOCATION##' = "@Directory = N''\\sqlbackup\sql_dev_bak$''"
+                '##BACKUP_LOCATION##' = "@Directory = N''\\backupserver\SQLBackups\Dev''"
             }
         }
         @{
@@ -142,7 +142,7 @@
                 '2025' = @{ Iso = '\\fileshare\DBA\ISO\SQL2025_Developer.iso'; Ini = '..\ini\ConfigurationFile_2025.ini'; Sha256 = '' }
             }
             ScriptTokens    = @{
-                '##BACKUP_LOCATION##' = "@Directory = N''\\sqlbackup\sql_int_bak$''"
+                '##BACKUP_LOCATION##' = "@Directory = N''\\backupserver\SQLBackups\Int''"
             }
         }
         @{
@@ -166,7 +166,7 @@
                 '2025' = @{ Iso = '\\fileshare\DBA\ISO\SQL2025_Developer.iso'; Ini = '..\ini\ConfigurationFile_2025.ini'; Sha256 = '' }
             }
             ScriptTokens    = @{
-                '##BACKUP_LOCATION##' = "@Directory = N''\\sqlbackup\sql_stg_bak$''"
+                '##BACKUP_LOCATION##' = "@Directory = N''\\backupserver\SQLBackups\Stg''"
             }
         }
         @{
@@ -190,7 +190,7 @@
                 '2025' = @{ Iso = '\\fileshare\DBA\ISO\SQL2025_Enterprise.iso'; Ini = '..\ini\ConfigurationFile_2025.ini'; Sha256 = '' }
             }
             ScriptTokens    = @{
-                '##BACKUP_LOCATION##' = "@Directory = N''\\sqlbackup\sql_prd_bak$''"
+                '##BACKUP_LOCATION##' = "@Directory = N''\\backupserver\SQLBackups\Prd''"
             }
         }
     )

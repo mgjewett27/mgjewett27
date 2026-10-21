@@ -147,7 +147,7 @@ function Get_<#Domain_B#>_SPNCredentials {
         $env:VAULT_NAMESPACE = '<#Vault namespace#>'
         
         
-        vault kv get -mount=kv -field=Password Shoremortgage
+        vault kv get -mount=kv -field=Password <#Domain secret name#>
     
     }
     

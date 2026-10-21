@@ -1,14 +1,14 @@
 #####################################################################################
 # This script will be used to help with SQL Server DBA Patch Nights.
-#      This was created in relation to https://kb.uwm.com/display/TDBA/DBAPCH003+-+YYYY-MM-DD+%5BPatch+night%5D+-+Automated+-+Template
+#      Built to automate the steps of a SQL Server patch night runbook.
 #     
 #
-#   01/21/2022    Mike Wilson - Created the script. 
-#   01/28/2022    Mike Wilson - updated variables to prod. Added some messages related to some bugs. 
-#   02/07/2022    Mike Wilson - Broke out the cluster service stop, and failvoer functions into 1 function.  
+#   01/21/2022    - Created the script. 
+#   01/28/2022    - updated variables to prod. Added some messages related to some bugs. 
+#   02/07/2022    - Broke out the cluster service stop, and failvoer functions into 1 function.  
 #                               This function will invoke-command to run run the cluster admin tools local to a server.
-#   02/15/2022    Mike Wilson - Updated the path for option #5 from the sql audit folder to C:\SOURCE\DBA_Scripts\.
-#   03/22/2022    Mike Wilson - Changed the date to a variable to fix a date comparision issue during pre/post patch checks.
+#   02/15/2022    - Updated the path for option #5 from the sql audit folder to C:\SOURCE\DBA_Scripts\.
+#   03/22/2022    - Changed the date to a variable to fix a date comparision issue during pre/post patch checks.
 #							    Created a temp array of an existing array in order to fix error - "Collection was modified; enumeration operation may not execute." 
 #								This was caused when trying to remove an object from an array that's in use. 
 #   02/13/2024    Mike Jewett - Updating failover function to now automatically failover list of clusters to their new active node
@@ -172,7 +172,7 @@ function DelayDurability_disable_func
                     Throw "ERROR: delayed Durability maintenance job failed. Please investigate.`n"
                     exit    
                 }
-            Write-host "`nSUMMARY: Overall, job 'Maint: DELAYED_DURABLITY = DISABLED' was disabled and verified as disabled on servers: SHORE1 and SHORE6"
+            Write-host "`nSUMMARY: Overall, job 'Maint: DELAYED_DURABLITY = DISABLED' was disabled and verified as disabled on the delayed durability instances"
             Write-Host "############################################################################`n" 
     } # End of DelayDurability_Func function.
 
@@ -181,7 +181,7 @@ function DelayDurability_disable_func
 #choice number 3 - disable TLOG backups on production instances.
 function disable_TLOG_func
     {
-        #This needs to be ran against shore1 & 6 only. 
+        #This needs to be ran against the delayed durability instances only. 
         $DISABLE_TLOG_ARRAY= <#Array of instances#>
 
                 #Disable TLOG backups on the instance
@@ -193,7 +193,7 @@ function disable_TLOG_func
                         #Verify TLOG backups have been disabled
                         Write-Host "Verifying job TLOG Backup job is disabled.`n"
 
-                        #Check of the status of the TLOG backup jobs on SHORE1 and SHORE6. Enabled jobs have a value of '1', disabled '0'. Returns the value of job staus and if '0' job is diabled and can continue
+                        #Check of the status of the TLOG backup jobs on the delayed durability instances. Enabled jobs have a value of '1', disabled '0'. Returns the value of job staus and if '0' job is diabled and can continue
                         $TLOG_ENABLED_CHECK = Invoke-DbaQuery -SqlInstance $DISABLE_TLOG_ARRAY -Database "msdb" -Query "EXEC dbo.sp_help_job @job_name = N'<#TLOG backup job#>', @job_aspect = N'JOB'" | Select-Object -expand enabled
                         IF ($TLOG_ENABLED_CHECK -contains 1 )
                             {
@@ -451,7 +451,7 @@ function restart_dd_func
         Write-Host "Welcome to the Delayed Durability maintenace job function."
         Write-Host "#############################################################################"
         
-        $DD_ENABLE_ARRAY= $SHORE1, $SHORE6
+        $DD_ENABLE_ARRAY= $DD_INSTANCE_1, $DD_INSTANCE_2
         
 
                 #Prompt to start the delayed durability job.
@@ -542,7 +542,7 @@ function schedule_freeproccache_func
         #$FREEPCCACHE_ENABLE = $TEST_INST
 
         Write-Host "`n############################################################################"
-                #Enable Freeproccache jobs on shore1 & shore6.
+                #Enable Freeproccache jobs on the delayed durability instances.
                 $FREEPCCACHE_ENABLE_CHOICE = Read-host "Would you like to schedule job '<#Free procedure cache job name#>' on production instances. ( Y / N )"
                 if ( $FREEPCCACHE_ENABLE_CHOICE -like "Y" )
                     {
@@ -633,13 +633,13 @@ do {
     [int]$userMenuChoice = 0
     while ($userMenuChoice -lt 1 -or $userMenuChoice -gt 12) {
     Write-Host "1: Perform a DB/instance health pre-check before patching."
-    Write-Host "2: Stop delayed durability on Shore 1 & Shore 6."
-    Write-Host "3: Stop Tlog jobs on Shore 1 & Shore 6."
-    Write-Host "4: Stop Backup jobs. Typically on shore 1, 2, 3, 6, dochub"
+    Write-Host "2: Stop delayed durability on the delayed durability instances."
+    Write-Host "3: Stop Tlog jobs on the delayed durability instances."
+    Write-Host "4: Stop Backup jobs. Typically on the instances with backup jobs"
     Write-Host "5: Admin a cluster: start, stop, verify a SQL cluster role OR perform a cluster failover."
     Write-Host "6: Restart a backup job."
-    Write-Host "7: Restart delayed durability FORCED jobs on Shore 1 & Shore 6."
-    Write-Host "8: Restart Tlog jobs on Shore 1 & Shore 6."
+    Write-Host "7: Restart delayed durability FORCED jobs on the delayed durability instances."
+    Write-Host "8: Restart Tlog jobs on the delayed durability instances."
     Write-Host "9: Schedule FREEPROCCACHE Cache."
     Write-Host "10: Perform Post-patching check."
     Write-Host "11: Start, stop, verify a SQL Server service for standalone clusters."

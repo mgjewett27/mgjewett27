@@ -8,7 +8,7 @@
 #    2/25/2025 - Mike Jewett - Updated Redgate API calls to reflect new version
 #    5/30/2025 - Mike Jewett - Added logic to handle multiple Redgate Base Monitors
 #    6/04/2025 - Mike Jewett - Added logic to handle adding tags to SQL Instance
-#    10/28/2025 - Arielle Bessala- Updated stage backup location to new Qumulo Cluster
+#    10/28/2025 - Updated stage backup location to the new backup cluster
 #    11/4/2025 - Mike Jewett - Using Vault to securely store RedGate auth token credentials, rather than copying a plain text file
 #####################################################################################
 
@@ -45,7 +45,7 @@ $MyConnection = Connect-DbaInstance -SqlInstance $Hostname -TrustServerCertifica
 Import-Module <#Redgate API directory#>
 
 #Update OLA jobs script to match the backup directory to the correct environment
-Write-Output "Updating backup jobs to point to the correct Qumulo location"
+Write-Output "Updating backup jobs to point to the correct backup location"
 if ($Hostname -like <#Dev server identifier#>) {
     $backup_directory = "@Directory = <#Location for Dev backup files#>"
 }
@@ -53,10 +53,10 @@ if ($Hostname -like <#Dev server identifier#>) {
         $backup_directory = "@Directory = <#Location for Integration backup files#>"
     }
     elseif ($Hostname -like <#Staging server identifier#>) {
-        $backup_directory = "@Directory = ''\\sqlbackup\sql_stg_bak$"
+        $backup_directory = "@Directory = <#Location for Staging backup files#>"
     }
     elseif ($Hostname -like <#Production server identifier#>) {
-        $backup_directory = "@Directory = ''\\sqlbackup\sql_prd_bak$"
+        $backup_directory = "@Directory = <#Location for Production backup files#>"
     }
     else {
         Throw "Could not determine environment for $Hostname, backup location not set"
