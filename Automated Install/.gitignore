@@ -1,0 +1,10 @@
+# Real environment values, only the example template is committed
+config/config.psd1
+
+# Real ini files, only *.example.ini templates are committed
+ini/*.ini
+!ini/*.example.ini
+
+# Local run output
+Logs/
+TestResults/

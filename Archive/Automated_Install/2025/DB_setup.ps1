@@ -12,6 +12,12 @@
 #    11/4/2025 - Mike Jewett - Using Vault to securely store RedGate auth token credentials, rather than copying a plain text file
 #####################################################################################
 
+Param (
+    #Production servers only, places the host in the Mission Critical Redgate group
+    [switch]$MissionCritical
+)
+
+$ErrorActionPreference = 'Stop'
 
 function Green
 {
@@ -39,38 +45,27 @@ $MyConnection = Connect-DbaInstance -SqlInstance $Hostname -TrustServerCertifica
 Import-Module <#Redgate API directory#>
 
 #Update OLA jobs script to match the backup directory to the correct environment
-Write-Output "Updating backup jobs to point to the correct Qumulo location" 
-#Update if Dev server
+Write-Output "Updating backup jobs to point to the correct Qumulo location"
 if ($Hostname -like <#Dev server identifier#>) {
-$dev_backup = "@Directory = <#Location for Dev backup files#>"
-$string = Get-Content -Path <#SQL Script to create backup jobs#>
-$replace_backup = $string.Replace("##BACKUP_LOCATION##",$dev_backup)
-Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
+    $backup_directory = "@Directory = <#Location for Dev backup files#>"
 }
-
-    #Update if Stage server
-    elseif($Hostname -like <#Integration server identifier#>) {
-        $int_backup = "@Directory = <#Location for Integration backup files#>"
-        $string = Get-Content -Path <#SQL Script to create backup jobs#>
-        $replace_backup = $string.Replace("##BACKUP_LOCATION##",$int_backup)
-        Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
+    elseif ($Hostname -like <#Integration server identifier#>) {
+        $backup_directory = "@Directory = <#Location for Integration backup files#>"
+    }
+    elseif ($Hostname -like <#Staging server identifier#>) {
+        $backup_directory = "@Directory = ''\\sqlbackup\sql_stg_bak$"
+    }
+    elseif ($Hostname -like <#Production server identifier#>) {
+        $backup_directory = "@Directory = ''\\sqlbackup\sql_prd_bak$"
+    }
+    else {
+        Throw "Could not determine environment for $Hostname, backup location not set"
     }
 
-        #Update if Stage server
-        elseif($Hostname -like <#Staging server identifier#>) {
-            $stg_backup = "@Directory = ''\\sqlbackup\sql_stg_bak$"
-            $string = Get-Content -Path <#SQL Script to create backup jobs#>
-            $replace_backup = $string.Replace("##BACKUP_LOCATION##",$stg_backup)
-            Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
-        }
-        
-            #Update if Prod server
-            elseif($Hostname -like <#Production server identifier#>) {
-                $prd_backup = "@Directory = ''\\sqlbackup\sql_prd_bak$"
-                $string = Get-Content -Path <#SQL Script to create backup jobs#>
-                $replace_backup = $string.Replace("##BACKUP_LOCATION##",$prd_backup)
-                Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
-            }
+#Render a local copy of the backup job script. The shared template keeps its ##BACKUP_LOCATION## placeholder for the next build
+$backup_job_script = Join-Path $env:TEMP 'Backup_Jobs_Rendered.sql'
+(Get-Content -Path <#SQL Script to create backup jobs#> -Raw).Replace('##BACKUP_LOCATION##', $backup_directory) |
+    Set-Content -Path $backup_job_script
 
 
 #Create PerfDB database 
@@ -85,7 +80,7 @@ Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#OLA Maintena
 Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#OLA Maintenance job script#>
 Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#OLA Maintenance job script#>
 Invoke-DbaQuery -SqlInstance $MyConnection -Database msdb -File <#OLA Maintenance job script#>
-Invoke-DbaQuery -SqlInstance $MyConnection -Database msdb -File <#SQL script to create backup jobs#>
+Invoke-DbaQuery -SqlInstance $MyConnection -Database msdb -File $backup_job_script
 Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#Custom SQL Maintenance job scripts#>
 Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#Custom SQL Maintenance job scripts#>
 Invoke-DbaQuery -SqlInstance $MyConnection -Database PerfDB -File <#Custom SQL Maintenance job scripts#>
@@ -130,18 +125,11 @@ if ($Hostname -like <#Staging Server Identifier#>) {
     elseif ($Hostname -like <#Integration Server Identifier#>) {
         $sqlMonitorGroup = $int_monitor_group   
     }
+    elseif ($MissionCritical) {
+        $sqlMonitorGroup = $mssn_crt_monitor_group
+    }
     else {
-        $prod_choice = Read-Host "Is this server Mission Critical? (Y/N)"
-
-        if ($prod_choice -like "Y") {
-            $sqlMonitorGroup = $mssn_crt_monitor_group
-        }
-        elseif ($prod_choice -like "N") {
-            $sqlMonitorGroup = $prd_monitor_group
-        }
-        else {
-            Throw "ERROR: Input not recognized, exiting script now"
-        }
+        $sqlMonitorGroup = $prd_monitor_group
     }
 #Get RedGate Monitor Auth Token from Vault, use it to connect to Redgate Monitor
     $env:VAULT_ADDR = <#Vault address#>
@@ -163,12 +151,10 @@ $server = New-SqlMonitorWindowsHost `
     -HostName "$Hostname" `
     -BaseMonitor $BaseMonitor `
     -Group $Group
-$server | Add-SqlMonitorMonitoredObject
-
-if ($? -eq 'True') {
+try {
+    $server | Add-SqlMonitorMonitoredObject
     Write-Output "SQL Host added to Redgate Monitor Successfully"
 }
-
-    else {
-        Throw "Adding host to Redgate Monitor failed, please check output to determine issue."
-    }
+catch {
+    Throw "Adding host to Redgate Monitor failed: $_"
+}

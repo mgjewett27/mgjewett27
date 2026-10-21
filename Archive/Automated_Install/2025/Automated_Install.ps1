@@ -12,7 +12,10 @@
 Param (
     [Parameter(Mandatory=$true)]
     [ValidateSet('2017', '2019', '2022', '2025')]
-    [string]$SQL_Version
+    [string]$SQL_Version,
+
+    #Production servers only, places the host in the Mission Critical Redgate group
+    [switch]$MissionCritical
 )
 
 # Error handling preference
@@ -219,6 +222,7 @@ if ($SQL_Version -eq '2022' -and $Hostname -like <#Production#>) {
     }
     elseif ($SQL_Version -eq '2025' -and $Hostname -notlike <#Production#>) {
         Copy-Item <#SQL 2025 Config ini#> -Destination "C:\Source\ConfigurationFile.ini"
+    }
 
 Write-Output "Pre-work has been completed successfully, beginning installation of SQL Software`n" | Green
 Write-Output "`n######################################"
@@ -287,16 +291,9 @@ else {
     Throw "Invalid SQL Service account"
 }
 
-#Content check if the service account password contains the $ character, if so throw error as SQL install will fail
+#Content check that the service account password was retrieved. Setup is called with an argument array, so '$' in the password is safe
 if ($service_pw_secure) {
-    $plain_pw = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto([System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($service_pw_secure))
-    if ($plain_pw -like '*$*') {
-        Write-Output "SQL Service account password contains invalid character '$'" | Red
-        Throw "SQL Service account password contains invalid character '$', SQL installation cannot proceed"
-    }
-    else {
-        Write-Output "Successfully retrieved SQL Service account password from Vault`n"
-    }
+    Write-Output "Successfully retrieved SQL Service account password from Vault`n"
 }
 else {
     Write-Output "Failed to retrieve SQL Service account password from Vault" | Red
@@ -325,21 +322,28 @@ $replaceText = (Get-Content -Path C:\Source\ConfigurationFile.ini -Raw) -replace
 #Run command, replacing SQL Server Service Account with actual account
 Set-Content -Path C:\Source\ConfigurationFile.ini $replaceText
 
-#Sets execution command
-$installCMD = "C:\Source\Setup.exe /ConfigurationFile=C:\Source\ConfigurationFile.ini /SQLSVCPASSWORD=""$SQL_password"" /AGTSVCPASSWORD=""$SQL_password"" /SAPWD=""$SA_password"""
+#Sets setup arguments. Passing an array (not a string through Invoke-Expression) keeps passwords from being parsed by PowerShell
+$installArgs = @(
+    '/ConfigurationFile=C:\Source\ConfigurationFile.ini'
+    "/SQLSVCPASSWORD=$SQL_password"
+    "/AGTSVCPASSWORD=$SQL_password"
+    "/SAPWD=$SA_password"
+)
 
-#Calls execution command
+#Calls setup, then checks the exit code since external executables do not throw on failure
 Write-Output "`n######################################"
 Write-Output "Beginning SQL installation"
 Write-Output "######################################`n"
-try {
-Invoke-Expression -Command $installCmd
-}
-catch {
+& C:\Source\Setup.exe @installArgs
+$setupExitCode = $LASTEXITCODE
+Remove-Variable -Name installArgs, SQL_password, SA_password
+
+#3010 = success, reboot required
+if ($setupExitCode -notin 0, 3010) {
     Write-Output "`n######################################"
-    Write-Output "SQL installation failed, please check the log files for errors" | Red
+    Write-Output "SQL installation failed with exit code $setupExitCode, check Summary.txt under C:\Program Files\Microsoft SQL Server\*\Setup Bootstrap\Log" | Red
     Write-Output "######################################`n"
-    Throw $_
+    Throw "SQL installation failed with exit code $setupExitCode"
 }
 
 Write-Host "SQL has been installed successfully, installing latest stable Cumulative Update" | Green
@@ -395,7 +399,8 @@ function CU_Update {
         Write-Output "CU update successful. Current CU: $currentCU" | Green
         Write-Output "######################################`n"
     } else {
-        Write-Error "CU update did not complete successfully. Please check logs for errors. Expected CU: $CU_Num, but found CU: $currentCU" | Red
+        Write-Output "CU update did not complete successfully. Expected CU: $CU_Num, but found CU: $currentCU" | Red
+        Throw "CU update did not complete successfully. Please check logs for errors."
     }
 }
 
@@ -412,7 +417,7 @@ choco install sql-server-management-studio -y --force
 Write-Output "`n######################################"
 Write-Output "Enabling AlwaysOn AG on $Hostname, SQL services will be restarted"
 Write-Output "######################################`n"
-Enable-SqlAlwaysOn -ServerInstance $Hostname -Force
+Enable-DbaAgHadr -SqlInstance $Hostname -Force -Confirm:$false
 Start-DbaService -ComputerName $Hostname -Type Agent
 Start-Sleep -Seconds 1
 
@@ -456,7 +461,8 @@ else {
 Write-Output "`n######################################"
 Write-Output "Server level configurations set, moving onto instance level setup" | Green
 Write-Output "######################################`n"
-Invoke-Command -ComputerName $Hostname -FilePath C:\Automated_Install\DB_Setup.ps1
+#Run in this session, a loopback Invoke-Command cannot reach the UNC script paths (Kerberos double hop)
+& C:\Automated_Install\DB_Setup.ps1 -MissionCritical:$MissionCritical
 
 #Stop transcript
 Stop-Transcript

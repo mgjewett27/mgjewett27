@@ -70,7 +70,11 @@ function PowerShell_tools_install {
                 choco install vault -y
             }
             if (-not $dbaToolsInstalled) {
-                Install-Module dbatools -Scope CurrentUser -Force -AllowClobber
+                #A blank VM prompts for the NuGet provider and untrusted PSGallery, handle both up front
+                Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope AllUsers | Out-Null
+                Set-PSRepository -Name PSGallery -InstallationPolicy Trusted
+                #AllUsers so the module is available to any account or remoting session that runs the install
+                Install-Module dbatools -Scope AllUsers -Force -AllowClobber
             }
         }
         else {
