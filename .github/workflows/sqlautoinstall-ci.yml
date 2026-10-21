@@ -1,0 +1,57 @@
+# Runs the SqlAutoInstall Pester tests and PSScriptAnalyzer on every push and pull request that
+# touches the tool. The same script runs locally: & '.\Automated Install\build\Invoke-CI.ps1'
+name: SqlAutoInstall CI
+
+on:
+  push:
+    paths:
+      - 'Automated Install/**'
+      - '.github/workflows/sqlautoinstall-ci.yml'
+  pull_request:
+    paths:
+      - 'Automated Install/**'
+      - '.github/workflows/sqlautoinstall-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write   # lets the test reporter publish a check with per-test results
+
+jobs:
+  test:
+    name: Pester and PSScriptAnalyzer
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # dbatools is large, caching the user module folder saves about a minute per run
+      - name: Cache PowerShell modules
+        uses: actions/cache@v4
+        with:
+          path: ~\Documents\PowerShell\Modules
+          key: psmodules-${{ runner.os }}-${{ hashFiles('Automated Install/build/Invoke-CI.ps1') }}
+
+      - name: Run analyzer and tests
+        run: '& "./Automated Install/build/Invoke-CI.ps1"'
+
+      - name: Publish test results
+        if: ${{ !cancelled() }}
+        uses: dorny/test-reporter@v1
+        with:
+          name: SqlAutoInstall Pester results
+          path: 'Automated Install/TestResults/pester-results.xml'
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload test results and coverage
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlautoinstall-test-results
+          path: 'Automated Install/TestResults/'
+          retention-days: 14
