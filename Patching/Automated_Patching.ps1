@@ -1,14 +1,14 @@
 ﻿#####################################################################################
 # This script will be used to help with SQL Server DBA Patch Nights.
-#      This was created in relation to https://kb.uwm.com/display/TDBA/DBAPCH003+-+YYYY-MM-DD+%5BPatch+night%5D+-+Automated+-+Template
+#      Built to automate the steps of a SQL Server patch night runbook.
 #     
 #
-#   01/21/2022   -  Mike Wilson - Created the script. 
-#   01/28/2022   - Mike Wilson - updated variables to prod. Added some messages related to some bugs. 
-#   02/07/2022   Mike Wilson - Broke out the cluster service stop, and failvoer functions into 1 function.  
+#   01/21/2022   - Created the script. 
+#   01/28/2022   - updated variables to prod. Added some messages related to some bugs. 
+#   02/07/2022   - Broke out the cluster service stop, and failvoer functions into 1 function.  
 #                              This function will invoke-command to run run the cluster admin tools local to a server.
-#   02/15/2022   Mike Wilson - Updated the path for option #5 from the sql audit folder to C:\SOURCE\DBA_Scripts\.
-#   03/22/2022   Mike Wilson - Changed the date to a variable to fix a date comparision issue during pre/post patch checks.
+#   02/15/2022   - Updated the path for option #5 from the sql audit folder to C:\SOURCE\DBA_Scripts\.
+#   03/22/2022   - Changed the date to a variable to fix a date comparision issue during pre/post patch checks.
 #							   Created a temp array of an existing array in order to fix error - "Collection was modified; enumeration operation may not execute." 
 #								This was caused when trying to remove an object from an array that's in use. 
 #   02/13/2024   Mike Jewett - Updating failover function to now automatically failover list of clusters to their new active node
@@ -116,11 +116,11 @@ function HealthCheckFunc
 
 
 
-#choice number 2 - disable delayed durability on shore 1 & 6.
+#choice number 2 - disable delayed durability on the delayed durability instances.
 function DelayDurability_disable_func
     {
-        # This needs to be ran against shore1 & 6 only.  The job isn't scheduled elsewhere at this time. 
-        $DD_DISABLE_ARRAY= $SHORE1, $SHORE6
+        # This needs to be ran against the delayed durability instances only.  The job isn't scheduled elsewhere at this time. 
+        $DD_DISABLE_ARRAY= $DD_INSTANCE_1, $DD_INSTANCE_2
         #$DD_DISABLE_ARRAY= $TEST_INST
 
         foreach ( $INST in $DD_DISABLE_ARRAY )
@@ -403,12 +403,12 @@ Start-Sleep -Seconds 2
 
 
 
-#choice number 6 - restart backup jobs. Typically on shore 1, 2, 3, 6, dochub. 
+#choice number 6 - restart backup jobs. Typically on the instances with backup jobs. 
 function restart_backup_jobs_func
     {
 		Write-Host "#################################################################"
         Write-Host "Welcome to the restart backup jobs function."
-        Write-Host "This typically needs to occur on shores 1, 2, 3, 6, and dochub."
+        Write-Host "This typically needs to occur on the instances with backup jobs."
         Write-Host "#################################################################"
 		
         #Create an temp array of the DB stop Job array. This resolve an error we saw - Collection was modified; enumeration operation may not execute.
@@ -561,13 +561,13 @@ function enable_TLOG_func
 #choice number 9 - schedule freeproccache on Certain instances. 
 function schedule_freeproccache_func
     {
-        $FREEPCCACHE_ENABLE= $SHORE1, $SHORE6
+        $FREEPCCACHE_ENABLE= $DD_INSTANCE_1, $DD_INSTANCE_2
         #$FREEPCCACHE_ENABLE = $TEST_INST
 
         Write-Host "`n############################################################################"
         foreach ( $INST in $FREEPCCACHE_ENABLE )
             {
-                #Enable Freeproccache jobs on shore1 & shore6.
+                #Enable Freeproccache jobs on the delayed durability instances.
                 $FREEPCCACHE_ENABLE_CHOICE = Read-host "Would you like to schedule job '<#Scheduled free proc cache Agent job#>' on $INST. ( Y / N )"
                 if ( $FREEPCCACHE_ENABLE_CHOICE -like "Y" )
                     {
@@ -665,13 +665,13 @@ do {
     [int]$userMenuChoice = 0
     while ($userMenuChoice -lt 1 -or $userMenuChoice -gt 12) {
     Write-Host "1: Perform a DB/instance health pre-check before patching."
-    Write-Host "2: Stop delayed durability on Shore 1 & Shore 6."
-    Write-Host "3: Stop Tlog jobs on Shore 1 & Shore 6."
-    Write-Host "4: Stop Backup jobs. Typically on shore 1, 2, 3, 6, dochub"
+    Write-Host "2: Stop delayed durability on the delayed durability instances."
+    Write-Host "3: Stop Tlog jobs on the delayed durability instances."
+    Write-Host "4: Stop Backup jobs. Typically on the instances with backup jobs"
     Write-Host "5: Admin a cluster: start, stop, verify a SQL cluster role OR perform a cluster failover."
     Write-Host "6: Restart a backup job."
-    Write-Host "7: Restart delayed durability FORCED jobs on Shore 1 & Shore 6."
-    Write-Host "8: Restart Tlog jobs on Shore 1 & Shore 6."
+    Write-Host "7: Restart delayed durability FORCED jobs on the delayed durability instances."
+    Write-Host "8: Restart Tlog jobs on the delayed durability instances."
     Write-Host "9: Schedule FREEPROCCACHE Cache."
     Write-Host "10: Perform Post-patching check."
     Write-Host "11: Start, stop, verify a SQL Server service for standalone clusters."

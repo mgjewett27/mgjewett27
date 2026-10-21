@@ -313,10 +313,10 @@ function Add-DatabaseToAG_Primary {
 # Introduction and Warning
 #################################################################################################################################
 Write-Host "========================================================================================================" -ForegroundColor Cyan
-Write-Host "UWM Availability Group Rebuild Script" -ForegroundColor Cyan
+Write-Host "Availability Group Rebuild Script" -ForegroundColor Cyan
 Write-Host "========================================================================================================" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "This script will rebuild the sepecified database in an Availability Group according to UWM's standards." -ForegroundColor Yellow
+Write-Host "This script will rebuild the sepecified database in an Availability Group." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "WARNING: This process involves taking backups and restoring databases." -ForegroundColor Red
 Write-Host "Services may be impacted while this script is running. Use with caution!" -ForegroundColor Red

@@ -17,7 +17,7 @@ $MyConnection = Connect-DbaInstance -SqlInstance $Hostname -TrustServerCertifica
 Import-Module <#Redgate API directory#>
 
 #Update OLA jobs script to match the backup directory to the correct environment
-Write-Output "Updating backup jobs to point to the correct Qumulo location" 
+Write-Output "Updating backup jobs to point to the correct backup location" 
 #Update if Dev server
 if ($Hostname -like <#Dev server identifier#>) {
 $dev_backup = "@Directory = <#Location for Dev backup files#>"
@@ -36,7 +36,7 @@ Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
 
         #Update if Stage server
         elseif($Hostname -like <#Staging server identifier#>) {
-            $stg_backup = "@Directory = ''\\sqlbackup\sql_stg_bak$"
+            $stg_backup = "@Directory = <#Location for Staging backup files#>"
             $string = Get-Content -Path <#SQL Script to create backup jobs#>
             $replace_backup = $string.Replace("##BACKUP_LOCATION##",$stg_backup)
             Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
@@ -44,7 +44,7 @@ Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
         
             #Update if Prod server
             elseif($Hostname -like <#Production server identifier#>) {
-                $prd_backup = "@Directory = ''\\sqlbackup\sql_prd_bak$"
+                $prd_backup = "@Directory = <#Location for Production backup files#>"
                 $string = Get-Content -Path <#SQL Script to create backup jobs#>
                 $replace_backup = $string.Replace("##BACKUP_LOCATION##",$prd_backup)
                 Set-Content -Path <#SQL Script to create backup jobs#> $replace_backup
